@@ -1,3 +1,4 @@
+
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -87,36 +88,64 @@ def run_pose_estimation_worker(reader, i_frames, est:FoundationPose=None, debug=
   return result
 
 
-def run_pose_estimation():
+def run_pose_estimation(opt):
   wp.force_load(device='cuda')
-  reader_tmp = LinemodReader(f'{opt.linemod_dir}/lm_test_all/test/000002', split=None)
+  video_dirs = sorted(glob.glob(f'{opt.dataset_dir}/test/*'))
+  print(f"Found video directories: {video_dirs}")
+  print(f"{len(video_dirs)} total video dirs")
+  res = NestDict()
 
   debug = opt.debug
   use_reconstructed_mesh = opt.use_reconstructed_mesh
   debug_dir = opt.debug_dir
+  save_dir = opt.save_dir
 
-  res = NestDict()
+  reader_tmp = LinemodOcclusionReader(video_dirs[0])
   glctx = dr.RasterizeCudaContext()
   mesh_tmp = trimesh.primitives.Box(extents=np.ones((3)), transform=np.eye(4)).to_mesh()
-  est = FoundationPose(model_pts=mesh_tmp.vertices.copy(), model_normals=mesh_tmp.vertex_normals.copy(), symmetry_tfs=None, mesh=mesh_tmp, scorer=None, refiner=None, glctx=glctx, debug_dir=debug_dir, debug=debug)
+  est = FoundationPose(
+      model_pts=mesh_tmp.vertices.copy(),
+      model_normals=mesh_tmp.vertex_normals.copy(),
+      symmetry_tfs=None,
+      mesh=mesh_tmp,
+      scorer=None,
+      refiner=None,
+      glctx=glctx,
+      debug_dir=debug_dir,
+      debug=debug
+      save_dir=
+  )
 
-  for ob_id in reader_tmp.ob_ids:
-    ob_id = int(ob_id)
+  ob_ids = reader_tmp.ob_ids
+
+  for ob_id in ob_ids:
     if use_reconstructed_mesh:
-      mesh = reader_tmp.get_reconstructed_mesh(ob_id, ref_view_dir=opt.ref_view_dir)
+        mesh = reader_tmp.get_reconstructed_mesh(ob_id, ref_view_dir=opt.ref_view_dir)
     else:
-      mesh = reader_tmp.get_gt_mesh(ob_id)
+        mesh = reader_tmp.get_gt_mesh(ob_id)
     symmetry_tfs = reader_tmp.symmetry_tfs[ob_id]
 
     args = []
+    for video_dir in video_dirs:
+      reader = LinemodOcclusionReader(video_dir, zfar=1.5)
 
-    video_dir = f'{opt.linemod_dir}/lm_test_all/test/{ob_id:06d}'
-    reader = LinemodReader(video_dir, split=None)
-    video_id = reader.get_video_id()
-    est.reset_object(model_pts=mesh.vertices.copy(), model_normals=mesh.vertex_normals.copy(), symmetry_tfs=symmetry_tfs, mesh=mesh)
+      scene_ob_ids = reader.get_instance_ids_in_image(0)
+      if ob_id not in scene_ob_ids:
+        continue
+      video_id = reader.get_video_id()
 
-    for i in range(len(reader.color_files)):
-      args.append((reader, [i], est, debug, ob_id, "cuda:0"))
+      for i in range(len(reader.color_files)):
+        args.append((reader, [i], est, debug, ob_id, "cuda:0"))
+      
+      # remove after testing with one vid
+      break
+
+    est.reset_object(
+      model_pts=mesh.vertices.copy(),
+      model_normals=mesh.vertex_normals.copy(),
+      symmetry_tfs=symmetry_tfs,
+      mesh=mesh
+    )
 
     outs = []
     for arg in args:
@@ -126,24 +155,28 @@ def run_pose_estimation():
     for out in outs:
       for video_id in out:
         for id_str in out[video_id]:
-          for ob_id in out[video_id][id_str]:
-            res[video_id][id_str][ob_id] = out[video_id][id_str][ob_id]
+          res[video_id][id_str][ob_id] = out[video_id][id_str][ob_id]
 
-  with open(f'{opt.debug_dir}/linemod_res.yml','w') as ff:
-    yaml.safe_dump(make_yaml_dumpable(res), ff)
+  dataset_name = os.path.basename(opt.dataset_dir.strip("/"))
+  with open(f'{opt.debug_dir}/{dataset_name}_res.yml', 'w') as ff:
+      yaml.safe_dump(make_yaml_dumpable(res), ff)
+
 
 
 if __name__=='__main__':
   parser = argparse.ArgumentParser()
   code_dir = os.path.dirname(os.path.realpath(__file__))
-  parser.add_argument('--linemod_dir', type=str, default="/mnt/9a72c439-d0a7-45e8-8d20-d7a235d02763/DATASET/LINEMOD", help="linemod root dir")
+  #parser.add_argument('--linemod_dir', type=str, default="/mnt/9a72c439-d0a7-45e8-8d20-d7a235d02763/DATASET/LINEMOD", help="linemod root dir")
+  parser.add_argument('--dataset_dir', type=str, default="/home/orestis/Desktop/FoundationPose/BOP/lmo", help="lmo root dir")
   parser.add_argument('--use_reconstructed_mesh', type=int, default=0)
   parser.add_argument('--ref_view_dir', type=str, default="/mnt/9a72c439-d0a7-45e8-8d20-d7a235d02763/DATASET/YCB_Video/bowen_addon/ref_views_16")
   parser.add_argument('--debug', type=int, default=0)
   parser.add_argument('--debug_dir', type=str, default=f'{code_dir}/debug')
+  parser.add_argument('--save_dir', type=str, default=f'{code_dir}/results')
+  
   opt = parser.parse_args()
   set_seed(0)
 
   detect_type = 'mask'   # mask / box / detected
 
-  run_pose_estimation()
+  run_pose_estimation(opt)

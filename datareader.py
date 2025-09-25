@@ -1,3 +1,4 @@
+
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -11,7 +12,7 @@ from Utils import *
 import json,os,sys
 
 
-BOP_LIST = ['lmo','tless','ycbv','hb','tudl','icbin','itodd']
+BOP_LIST = ['lmo','tless','ycbv','hb','tudl','icbin','itodd', 'industrial']
 BOP_DIR = os.getenv('BOP_DIR')
 
 def get_bop_reader(video_dir, zfar=np.inf):
@@ -29,6 +30,8 @@ def get_bop_reader(video_dir, zfar=np.inf):
     return IcbinReader(video_dir, zfar=zfar)
   if 'itodd' in video_dir:
     return ItoddReader(video_dir, zfar=zfar)
+  if 'industrial' in video_dir:
+    return IndustrialReader(video_dir, zfar=zfar)
   else:
     raise RuntimeError
 
@@ -37,17 +40,19 @@ def get_bop_video_dirs(dataset):
   if dataset=='ycbv':
     video_dirs = sorted(glob.glob(f'{BOP_DIR}/ycbv/test/*'))
   elif dataset=='lmo':
-    video_dirs = sorted(glob.glob(f'{BOP_DIR}/lmo/lmo_test_bop19/test/*'))
+    video_dirs = sorted(glob.glob(f'{BOP_DIR}/lmo/test/*'))
   elif dataset=='tless':
-    video_dirs = sorted(glob.glob(f'{BOP_DIR}/tless/tless_test_primesense_bop19/test_primesense/*'))
+    video_dirs = sorted(glob.glob(f'{BOP_DIR}/tless/test_primesense/*'))
   elif dataset=='hb':
     video_dirs = sorted(glob.glob(f'{BOP_DIR}/hb/hb_test_primesense_bop19/test_primesense/*'))
   elif dataset=='tudl':
-    video_dirs = sorted(glob.glob(f'{BOP_DIR}/tudl/tudl_test_bop19/test/*'))
+    video_dirs = sorted(glob.glob(f'{BOP_DIR}/tudl/test/*'))
   elif dataset=='icbin':
-    video_dirs = sorted(glob.glob(f'{BOP_DIR}/icbin/icbin_test_bop19/test/*'))
+    video_dirs = sorted(glob.glob(f'{BOP_DIR}/icbin/test/*'))
   elif dataset=='itodd':
     video_dirs = sorted(glob.glob(f'{BOP_DIR}/itodd/itodd_test_bop19/test/*'))
+  elif dataset=='industrial':
+    video_dirs = sorted(glob.glob(f'{BOP_DIR}/industrial/test/*'))
   else:
     raise RuntimeError
   return video_dirs
@@ -350,7 +355,9 @@ class BopBaseReader:
 
 
   def load_symmetry_tfs(self):
+    print("ob_id ", self.get_gt_mesh_file(self.ob_ids[0]))
     dir = os.path.dirname(self.get_gt_mesh_file(self.ob_ids[0]))
+    print(f"Directory for models_info.json: {dir}") 
     info_file = f'{dir}/models_info.json'
     with open(info_file,'r') as ff:
       info = json.load(ff)
@@ -398,7 +405,7 @@ class LinemodOcclusionReader(BopBaseReader):
 
 
 class LinemodReader(LinemodOcclusionReader):
-  def __init__(self, base_dir='/mnt/9a72c439-d0a7-45e8-8d20-d7a235d02763/DATASET/LINEMOD/lm_test_all/test/000001', zfar=np.inf, split=None):
+  def __init__(self, base_dir='BOP/lmo', zfar=np.inf, split=None):
     super().__init__(base_dir, zfar=zfar)
     self.dataset_name = 'lm'
     if split is not None:  # train/test
@@ -412,6 +419,7 @@ class LinemodReader(LinemodOcclusionReader):
 
     self.ob_ids = np.setdiff1d(np.arange(1,16), np.array([7,3])).tolist()  # Exclude bowl and mug
     self.load_symmetry_tfs()
+
 
 
   def get_gt_mesh_file(self, ob_id):
@@ -480,9 +488,10 @@ class YcbVideoReader(BopBaseReader):
 
   def get_gt_mesh_file(self, ob_id):
     if 'BOP' in self.base_dir:
-      mesh_file = os.path.abspath(f'{self.base_dir}/../../ycbv_models/models/obj_{ob_id:06d}.ply')
+      #mesh_file = os.path.abspath(f'{self.base_dir}/../../ycbv_models/models/obj_{ob_id:06d}.ply')
+      mesh_file = os.path.abspath(f'{self.base_dir}/../../models/obj_{ob_id:06d}.ply')
     else:
-      mesh_file = f'{self.base_dir}/../../ycbv_models/models/obj_{ob_id:06d}.ply'
+      mesh_file = f'{BOP_DIR}/{self.dataset_name}/models/obj_{ob_id:06d}.ply'
     return mesh_file
 
 
@@ -536,11 +545,12 @@ class TlessReader(BopBaseReader):
     self.dataset_name = 'tless'
 
     self.ob_ids = np.arange(1,31).astype(int).tolist()
+    self.K = list(self.K_table.values())[0]
     self.load_symmetry_tfs()
 
 
   def get_gt_mesh_file(self, ob_id):
-    mesh_file = f'{self.base_dir}/../../../models_cad/obj_{ob_id:06d}.ply'
+    mesh_file = f'{BOP_DIR}/{self.dataset_name}/models_cad/obj_{ob_id:06d}.ply'
     return mesh_file
 
 
@@ -588,14 +598,15 @@ class ItoddReader(BopBaseReader):
 
 
 class IcbinReader(BopBaseReader):
-  def __init__(self, base_dir, zfar=np.inf):
+  def __init__(self, base_dir="/home/orestis/Desktop/FoundationPose/BOP/icbin", zfar=np.inf):
     super().__init__(base_dir, zfar=zfar)
     self.dataset_name = 'icbin'
     self.ob_ids = np.arange(1,3).astype(int).tolist()
+    self.K = list(self.K_table.values())[0]
     self.load_symmetry_tfs()
 
   def get_gt_mesh_file(self, ob_id):
-    mesh_file = f'{self.base_dir}/../../../icbin_models/models/obj_{ob_id:06d}.ply'
+    mesh_file = f'{BOP_DIR}/{self.dataset_name}/models/obj_{ob_id:06d}.ply'
     return mesh_file
 
 
@@ -603,11 +614,23 @@ class TudlReader(BopBaseReader):
   def __init__(self, base_dir, zfar=np.inf):
     super().__init__(base_dir, zfar=zfar)
     self.dataset_name = 'tudl'
-    self.ob_ids = np.arange(1,4).astype(int).tolist()
+    self.ob_ids = np.arange(1,3).astype(int).tolist()
+    self.K = list(self.K_table.values())[0]
     self.load_symmetry_tfs()
 
   def get_gt_mesh_file(self, ob_id):
-    mesh_file = f'{self.base_dir}/../../../tudl_models/models/obj_{ob_id:06d}.ply'
+    mesh_file = f'{BOP_DIR}/{self.dataset_name}/models/obj_{ob_id:06d}.ply'
     return mesh_file
 
 
+class IndustrialReader(BopBaseReader):
+  def __init__(self, base_dir, zfar=np.inf):
+    super().__init__(base_dir, zfar=zfar)
+    self.dataset_name = 'industrial'
+    self.ob_ids = np.arange(1,5).astype(int).tolist()
+    self.K = list(self.K_table.values())[0]
+    self.load_symmetry_tfs()
+
+  def get_gt_mesh_file(self, ob_id):
+    mesh_file = f'{BOP_DIR}/{self.dataset_name}/models/obj_{ob_id:06d}.ply'
+    return mesh_file
