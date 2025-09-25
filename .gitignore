@@ -156,3 +156,8 @@ data/
 logs/
 !BundleTrack/XMem/inference/data
 run_used.yml
+
+# Downloaded and generated data
+demo_data/
+weights/
+
