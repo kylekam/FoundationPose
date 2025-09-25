@@ -136,9 +136,11 @@ def run_pose_estimation(opt):
 
       for i in range(len(reader.color_files)):
         args.append((reader, [i], est, debug, ob_id, "cuda:0"))
-      
-      # remove after testing with one vid
-      break
+    
+      if opt.debugging:
+        # remove after testing with one vid
+        args = args[:100]
+        break
 
     est.reset_object(
       model_pts=mesh.vertices.copy(),
@@ -157,6 +159,10 @@ def run_pose_estimation(opt):
         for id_str in out[video_id]:
           res[video_id][id_str][ob_id] = out[video_id][id_str][ob_id]
 
+    if opt.debugging:
+      # remove after testing with one vid
+      break
+
   dataset_name = os.path.basename(opt.dataset_dir.strip("/"))
   with open(f'{opt.debug_dir}/{dataset_name}_res.yml', 'w') as ff:
       yaml.safe_dump(make_yaml_dumpable(res), ff)
@@ -173,6 +179,7 @@ if __name__=='__main__':
   parser.add_argument('--debug', type=int, default=0)
   parser.add_argument('--debug_dir', type=str, default=f'{code_dir}/debug')
   parser.add_argument('--save_dir', type=str, default=f'{code_dir}/results')
+  parser.add_argument('--debugging', action="store_true", default="Enables early exiting for quicker debug iterations")
   
   opt = parser.parse_args()
   set_seed(0)
