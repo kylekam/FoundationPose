@@ -115,7 +115,7 @@ def make_crop_data_batch(render_size, ob_in_cams, mesh, rgb, depth, K, crop_rati
 
 
 class ScorePredictor:
-  def __init__(self, amp=True):
+  def __init__(self, amp=True, save_dir=None):
     self.amp = amp
     self.run_name = "2024-01-11-20-02-45"
 
@@ -124,6 +124,9 @@ class ScorePredictor:
     ckpt_dir = f'{code_dir}/../../weights/{self.run_name}/{model_name}'
 
     self.cfg = OmegaConf.load(f'{code_dir}/../../weights/{self.run_name}/config.yml')
+
+    if save_dir:
+      self.cfg["save_dir"] = save_dir
 
     self.cfg['ckpt_dir'] = ckpt_dir
     self.cfg['enable_amp'] = True

@@ -112,8 +112,8 @@ def run_pose_estimation(opt):
       refiner=None,
       glctx=glctx,
       debug_dir=debug_dir,
-      debug=debug
-      save_dir=
+      debug=debug,
+      save_dir=save_dir
   )
 
   ob_ids = reader_tmp.ob_ids

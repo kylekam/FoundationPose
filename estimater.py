@@ -16,7 +16,20 @@ import yaml
 
 
 class FoundationPose:
-  def __init__(self, model_pts, model_normals, symmetry_tfs=None, mesh=None, scorer:ScorePredictor=None, refiner:PoseRefinePredictor=None, glctx=None, debug=0, debug_dir='/home/bowen/debug/novel_pose_debug/'):
+  def __init__(
+      self, 
+      model_pts, 
+      model_normals,
+      save_dir=None,
+      symmetry_tfs=None, 
+      mesh=None, 
+      scorer:ScorePredictor=None, 
+      refiner:PoseRefinePredictor=None, 
+      glctx=None, 
+      debug=0, 
+      debug_dir='/home/bowen/debug/novel_pose_debug/'
+    ):
+
     self.gt_pose = None
     self.ignore_normal_flip = True
     self.debug = debug
@@ -31,12 +44,12 @@ class FoundationPose:
     if scorer is not None:
       self.scorer = scorer
     else:
-      self.scorer = ScorePredictor()
+      self.scorer = ScorePredictor(save_dir=save_dir)
 
     if refiner is not None:
       self.refiner = refiner
     else:
-      self.refiner = PoseRefinePredictor()
+      self.refiner = PoseRefinePredictor(save_dir=save_dir)
 
     self.pose_last = None   # Used for tracking; per the centered mesh
 

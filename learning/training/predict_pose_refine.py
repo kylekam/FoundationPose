@@ -91,7 +91,7 @@ def make_crop_data_batch(render_size, ob_in_cams, mesh, rgb, depth, K, crop_rati
 
 
 class PoseRefinePredictor:
-  def __init__(self,):
+  def __init__(self,save_dir=None):
     logging.info("welcome")
     self.amp = True
     self.run_name = "2023-10-28-18-33-37"
@@ -101,6 +101,9 @@ class PoseRefinePredictor:
 
     self.cfg = OmegaConf.load(f'{code_dir}/../../weights/{self.run_name}/config.yml')
 
+    if save_dir:
+      self.cfg["save_dir"] = save_dir
+      
     self.cfg['ckpt_dir'] = ckpt_dir
     self.cfg['enable_amp'] = True
 
